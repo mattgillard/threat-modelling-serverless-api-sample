@@ -1,0 +1,346 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-pii-demo
+  
+  Sample SAM Template for user-pii-demo
+
+Parameters:
+  UserServiceKeyAliasName:
+    Type: String
+    Default: alias/userservicekey
+  PassportServiceKeyAliasName:
+    Type: String
+    Default: alias/passportservicekey
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 10
+    Environment:
+      Variables:
+        TableName: !Ref UsersTable
+        ServiceKey: !Ref UserServiceKeyAliasName
+        PassportServiceKey: !Ref PassportServiceKeyAliasName
+
+Resources:
+  UserGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: userget
+      Runtime: go1.x
+      CodeUri: functions/userget
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Sid: SecretsManagerGetValue
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: KMS
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringLike:
+                  kms:RequestAlias: !Ref UserServiceKeyAliasName
+      Events:
+        GetTodo:
+          Type: Api
+          Properties:
+            Path: /user/{id}
+            Method: GET
+        GetTodos:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: GET
+    #Metadata:
+    #  BuildMethod: makefile
+
+  UserPutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: userput
+      Runtime: go1.x
+      CodeUri: functions/userput
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBWritePolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Sid: SecretsManagerCreate
+              Effect: Allow
+              Action:
+                - secretsmanager:CreateSecret
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: KMS
+              Effect: Allow
+              Action:
+                - kms:Encrypt
+              Resource: "*"
+              Condition:
+                StringLike:
+                  kms:RequestAlias: !Ref UserServiceKeyAliasName
+      Events:
+        UpdateTodo:
+          Type: Api
+          Properties:
+            Path: /user/{id}
+            Method: PUT
+
+   # Metadata:
+   #   BuildMethod: makefile
+
+  UserPostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: userpost
+      Runtime: go1.x
+      CodeUri: functions/userpost
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBWritePolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Sid: SecretsManagerGetValue
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: SecretsManagerCreate
+              Effect: Allow
+              Action:
+                - secretsmanager:CreateSecret
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: KMSUserService
+              Effect: Allow
+              Action:
+                - kms:Encrypt
+              Resource: "*"
+              Condition:
+                StringLike:
+                  kms:RequestAlias: !Ref UserServiceKeyAliasName
+            - Sid: KMSPassportService
+              Effect: Allow
+              Action:
+                - kms:Encrypt
+              Resource: "*"
+              Condition:
+                StringLike:
+                  kms:RequestAlias: !Ref PassportServiceKeyAliasName
+      Events:
+        PutTodo:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: POST
+    #Metadata:
+    #  BuildMethod: makefile
+
+  UserDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: userdelete
+      Runtime: go1.x
+      CodeUri: functions/userdelete
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Sid: SecretsManagerGetValue
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: SecretsManagerCreate
+              Effect: Allow
+              Action:
+                - secretsmanager:DeleteSecret # TODO
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+      Events:
+        DeleteTodo:
+          Type: Api
+          Properties:
+            Path: /user/{id}
+            Method: DELETE
+    #Metadata:
+    #  BuildMethod: makefile
+
+  # UserServiceKeySSM:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #    Description: User Service Key ARN
+  #    Type: String
+  #    Value: !GetAtt UserServiceKey.Arn
+  #    Name: UserServiceKeyArn
+
+  PassportGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: passportget
+      Runtime: go1.x
+      CodeUri: functions/passportget
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Sid: SecretsManagerGetValue
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: SecretsManagerCreate
+              Effect: Allow
+              Action:
+                - secretsmanager:CreateSecret
+              Resource: 'arn:aws:secretsmanager:ap-southeast-2:*:secret:keys/user/*'
+            - Sid: KMS
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringLike:
+                  kms:RequestAlias: !Ref PassportServiceKeyAliasName
+      Events:
+        GetPassport:
+          Type: Api
+          Properties:
+            Path: /passport/{id}
+            Method: GET
+
+  UserServiceKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Ref UserServiceKeyAliasName
+      TargetKeyId: !Ref UserServiceKey
+
+  PassportServiceKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Ref PassportServiceKeyAliasName
+      TargetKeyId: !Ref PassportServiceKey
+
+  UserServiceKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "User Service Key"
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: user-service-default-1
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:user/matt'
+            Action:
+              - 'kms:Create*'
+              - 'kms:Describe*'
+              - 'kms:Enable*'
+              - 'kms:List*'
+              - 'kms:Put*'
+              - 'kms:Update*'
+              - 'kms:Revoke*'
+              - 'kms:Disable*'
+              - 'kms:Get*'
+              - 'kms:Delete*'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:CancelKeyDeletion'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt UserGetFunctionRole.Arn
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Decrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt UserPostFunctionRole.Arn
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+
+  PassportServiceKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Passport Service Key"
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: passport-service-default-1
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:user/matt'
+            Action:
+              - 'kms:Create*'
+              - 'kms:Describe*'
+              - 'kms:Enable*'
+              - 'kms:List*'
+              - 'kms:Put*'
+              - 'kms:Update*'
+              - 'kms:Revoke*'
+              - 'kms:Disable*'
+              - 'kms:Get*'
+              - 'kms:Delete*'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:CancelKeyDeletion'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt PassportGetFunctionRole.Arn
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Decrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt UserPostFunctionRole.Arn
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+Outputs:
+  HelloWorldAPI:
+    Description: "API Gateway endpoint URL for Prod environment for First Function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/user/"
+  HelloWorldFunction:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt UserGetFunctionRole.Arn
+  HelloWorldFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt UserGetFunctionRole.Arn
