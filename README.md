@@ -12,6 +12,15 @@ It has been refactored and made more modular for my purposes.  This is experimen
 
 > :warning: This code sample is provided AS-IS and use this code at your own risk.
 
+## Purpose
+
+This repo was designed as a quick demo on how to encrypt personal information using KMS and secrets manager on AWS.
+
+* All encryption is done with a separate key for each new record (user) created.
+* The user service (POST and GET) can encrypt and decrypt the users address that they supply.
+* The passport service can decrypt only the passport field.
+* If the user key is deleted - no encrypted records can be decrypted.
+
 ## How to deploy to AWS
 
 ### Requirements
